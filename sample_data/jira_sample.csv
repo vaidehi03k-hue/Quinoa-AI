@@ -1,0 +1,6 @@
+Issue key,Summary,Assignee,Story Points,Status
+PROJ-101,Bulk edit action in task list,Alex,5,To Do
+PROJ-102,Speed up search for large datasets,Sam,8,In Progress
+PROJ-103,Add story points to CSV export,Kim,2,To Do
+PROJ-104,Implement SSO (SAML/OIDC),Lee,13,To Do
+PROJ-105,Fix crash on image attachments (mobile),Jordan,5,To Do
