@@ -42,13 +42,11 @@ async function llmJSON(prompt, schemaHint) {
     max_tokens: 1200
   });
   let txt = out?.choices?.[0]?.message?.content?.trim() ?? '';
-  // Attempt to extract JSON block
   const m = txt.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
   if (m) txt = m[0];
   try {
     return JSON.parse(txt);
   } catch {
-    // Last resort: return string for debugging
     throw new Error('LLM did not return JSON: ' + txt.slice(0, 400));
   }
 }
@@ -65,7 +63,7 @@ async function llmText(prompt) {
 
 // ---------- AI Theme Labels ----------
 aiLabelBtn?.addEventListener('click', async () => {
-  if (!window.current?.themes?.length) return alert('Synthesize themes first.');
+  if (!window.current?.themes?.length) return;
   try {
     await ensureEngine();
     const clusters = window.current.themes.map((t) => {
@@ -97,7 +95,7 @@ aiLabelBtn?.addEventListener('click', async () => {
 // ---------- PRD Rewrite ----------
 rewritePrdBtn?.addEventListener('click', async () => {
   const prdEl = document.getElementById('prd');
-  if (!prdEl.value) return alert('Generate a PRD first.');
+  if (!prdEl.value) return;
   llmStatus.textContent = 'Rewriting PRD with LLM…';
   try {
     const prompt = `Rewrite the following PRD into a concise executive brief. Keep headings, strengthen clarity, remove fluff, and ensure it stays grounded in the listed evidence. Do not invent facts.\n\n${prdEl.value}`;
@@ -111,8 +109,9 @@ rewritePrdBtn?.addEventListener('click', async () => {
 
 // ---------- Prioritization Assistant (AI Suggest RICE) ----------
 window.addEventListener('quinoa:assist-rice', async () => {
-  if (!window.current?.themes?.length) return alert('Synthesize first.');
+  if (!window.current?.themes?.length) return;
   try {
+    const riceSuggestStatus = document.getElementById('riceSuggestStatus') || {textContent:''};
     riceSuggestStatus.textContent = 'LLM analyzing severity & suggesting RICE…';
     const themes = window.current.themes.map(t => {
       const ex = t.items.slice(0, 3).map(i => `- ${i.text}${i.severity ? ' (sev:' + i.severity + ')' : ''}`).join('\n');
@@ -136,26 +135,18 @@ window.addEventListener('quinoa:assist-rice', async () => {
     // Render + rationale note
     const notes = json.map(j => `• ${j.id}: ${j.rationale || '—'}`).join('\n');
     riceSuggestStatus.textContent = 'Applied LLM RICE suggestions:\n' + notes;
-    // Re-render
-    window.current.rice.sort((a,b)=>b.rice-a.rice);
-    const ev = new Event('renderRice'); window.dispatchEvent(ev);
-    // manual render (since app.js listens only to inputs)
-    const prioEl = document.getElementById('prioritization');
-    prioEl.innerHTML = ''; // force rebuild via app render function if needed
-    // Quick way: trigger synth render functions if exposed (we rebuild minimally):
-    // (We rely on the Chart updating only when table rerenders via app.js input events.)
-    // For now, we can just regenerate the table rows:
-    // Better approach: we could expose a function; but to keep code simple, dispatch change event on first input.
-    const firstInput = prioEl.querySelector('input');
+    // Re-render: trigger a change on first input to refresh table/chart
+    const firstInput = document.querySelector('#prioritization input');
     if (firstInput) firstInput.dispatchEvent(new Event('change'));
   } catch (e) {
+    const riceSuggestStatus = document.getElementById('riceSuggestStatus') || {textContent:''};
     riceSuggestStatus.textContent = 'LLM RICE suggestion failed: ' + e.message;
   }
 });
 
 // ---------- Roadmap Generator ----------
 roadmapBtn?.addEventListener('click', async () => {
-  if (!window.current?.rice?.length) return alert('Prioritize first.');
+  if (!window.current?.rice?.length) return;
   try {
     llmStatus.textContent = 'Generating roadmap with LLM…';
     const top = structuredClone(window.current.rice).sort((a,b)=>b.rice-a.rice).slice(0,5);
@@ -178,7 +169,7 @@ roadmapBtn?.addEventListener('click', async () => {
 
 // ---------- Personas / JTBD ----------
 personasBtn?.addEventListener('click', async () => {
-  if (!window.current?.themes?.length) return alert('Synthesize first.');
+  if (!window.current?.themes?.length) return;
   try {
     llmStatus.textContent = 'Inferring personas & JTBD…';
     const themes = window.current.themes.map(t => ({
@@ -199,7 +190,7 @@ personasBtn?.addEventListener('click', async () => {
 
 // ---------- Pitch Deck Bullets ----------
 pitchBtn?.addEventListener('click', async () => {
-  if (!window.current?.themes?.length) return alert('Synthesize first.');
+  if (!window.current?.themes?.length) return;
   try {
     llmStatus.textContent = 'Generating deck bullets…';
     const themes = window.current.themes.map(t => ({
@@ -215,23 +206,7 @@ pitchBtn?.addEventListener('click', async () => {
   }
 });
 
-copyPitchBtn?.addEventListener('click', async () => {
-  if (!pitchOut.textContent) return;
-  await navigator.clipboard.writeText(pitchOut.textContent);
-  copyPitchBtn.textContent = 'Copied!';
-  setTimeout(()=> copyPitchBtn.textContent='📋 Copy bullets', 1200);
-});
-downloadPitchBtn?.addEventListener('click', () => {
-  if (!pitchOut.textContent) return;
-  const blob = new Blob([pitchOut.textContent], {type:'text/markdown'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'quinoa-deck-bullets.md';
-  a.click();
-  URL.revokeObjectURL(a.href);
-});
-
-// --- expose a tiny helper to refresh RICE table labels if needed ---
+// --- small helper to refresh RICE table labels if needed ---
 window.addEventListener('renderRice', () => {
   const prioEl = document.getElementById('prioritization');
   const rows = prioEl.querySelectorAll('tbody tr');

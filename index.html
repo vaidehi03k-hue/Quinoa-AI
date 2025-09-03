@@ -1,137 +1,150 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Quinoa — Tiny grains, big insights</title>
-    <meta name="description" content="Quinoa: free, client-side AI PM copilot. Embeddings + WebLLM for clustering, RICE, PRD, roadmap, personas, and deck bullets.">
-    <link rel="stylesheet" href="styles.css" />
-    <!-- Core libs (all free CDNs) -->
-    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
-        });
-      }
-    </script>
-  </head>
-  <body>
-    <header class="container hero">
-      <div class="hero-badge">FREE • CLIENT-SIDE AI</div>
-      <h1>Quinoa <span class="dot">●</span> PM Copilot</h1>
-      <p class="sub">Tiny grains, big insights — Turn messy feedback into themes, a prioritized roadmap, and a crisp PRD.</p>
-    </header>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quinoa — Tiny grains, big insights</title>
+  <meta name="description" content="Quinoa: AI PM copilot with a simple wizard UX.">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+      });
+    }
+  </script>
+</head>
+<body>
+  <header class="hero container fade-in">
+    <div class="badge">FREE • CLIENT‑SIDE AI</div>
+    <h1 class="title">Quinoa <span class="dot">●</span> PM Copilot</h1>
+    <p class="sub">Tiny grains, big insights — turn feedback into themes, priorities, and a PRD.</p>
+    <button id="startBtn" class="btn cta pulse">Start</button>
+  </header>
 
-    <main class="container grid">
-      <!-- Inputs -->
-      <section class="card">
-        <h2>1) Inputs</h2>
-        <label class="label">Paste notes / transcripts / quotes</label>
-        <textarea id="notes" placeholder="One thought per line works best…"></textarea>
-        <div class="row">
-          <div class="col">
-            <label class="label">NPS/Feedback CSV (optional)</label>
-            <input type="file" id="npsCsv" accept=".csv" />
-            <small class="muted tiny">If a 'score' column exists, Quinoa uses it for severity-aware suggestions.</small>
-          </div>
-          <div class="col">
-            <label class="label">Jira Export CSV (optional)</label>
-            <input type="file" id="jiraCsv" accept=".csv" />
-          </div>
+  <!-- Stepper -->
+  <nav class="stepper container">
+    <div class="step active" data-step="1"><span>1</span><label>Input</label></div>
+    <div class="step" data-step="2"><span>2</span><label>Themes</label></div>
+    <div class="step" data-step="3"><span>3</span><label>Prioritize</label></div>
+    <div class="step" data-step="4"><span>4</span><label>PRD</label></div>
+    <div class="step" data-step="5"><span>5</span><label>Insights</label></div>
+    <div class="bar"></div>
+  </nav>
+
+  <main class="container">
+
+    <!-- STEP 1: INPUT -->
+    <section class="card panel active slide-in-up" data-panel="1">
+      <h2>1) Paste your feedback</h2>
+      <p class="muted tiny">No strict format. <b>One thought per line</b> works best. You can also add CSVs.</p>
+      <textarea id="notes" placeholder="Examples:
+The mobile app crashes when uploading images.
+Search is slow for large projects.
+We need SSO for enterprise customers.
+Export to CSV misses story points.
+Onboarding could be more guided.
+"></textarea>
+      <div class="row">
+        <div class="col">
+          <label class="label">NPS/Feedback CSV (optional)</label>
+          <input type="file" id="npsCsv" accept=".csv" />
+          <small class="muted tiny">If a <b>score</b> column exists, Quinoa uses it for severity.</small>
         </div>
-        <div class="row">
-          <button id="synthesizeBtn" class="btn primary">🌾 Synthesize</button>
-          <div id="embedStatus" class="muted tiny"></div>
+        <div class="col">
+          <label class="label">Jira Export CSV (optional)</label>
+          <input type="file" id="jiraCsv" accept=".csv" />
+          <small class="muted tiny">If <b>Summary</b> / <b>Story Points</b> exist, Quinoa uses them for effort hints.</small>
         </div>
-      </section>
+      </div>
+      <div class="row between">
+        <div id="embedStatus" class="muted tiny"></div>
+        <button id="analyzeBtn" class="btn primary hover-pop">Analyze feedback →</button>
+      </div>
+    </section>
 
-      <!-- Themes -->
-      <section class="card">
-        <h2>2) Themes & Evidence</h2>
-        <div class="row">
-          <div class="col"><p class="muted tiny">Clusters are derived from embeddings; quotes are evidence.</p></div>
-          <div class="col right">
-            <button id="aiLabelBtn" class="btn">✨ AI Label Themes</button>
-          </div>
-        </div>
-        <div id="themes"></div>
-        <div id="aiLabelStatus" class="muted tiny"></div>
-      </section>
+    <!-- STEP 2: THEMES -->
+    <section class="card panel" data-panel="2">
+      <h2>2) Themes & evidence</h2>
+      <p class="muted tiny">AI clusters similar feedback. Titles auto‑labeled with LLM.</p>
+      <div id="themes" class="stagger"></div>
+      <div class="row end">
+        <button class="btn next hover-pop" data-next="3">Next → Prioritize</button>
+      </div>
+    </section>
 
-      <!-- RICE -->
-      <section class="card">
-        <h2>3) Prioritize (RICE)</h2>
-        <div class="row">
-          <div class="col"><p class="muted tiny">Edit values; table auto-sorts by RICE.</p></div>
-          <div class="col right">
-            <button id="suggestRiceBtn" class="btn">✨ AI Suggest RICE</button>
-            <button id="downloadCsv" class="btn">⬇ Export CSV</button>
-          </div>
-        </div>
-        <div id="prioritization"></div>
-        <canvas id="chart" height="120"></canvas>
-        <div id="riceSuggestStatus" class="muted tiny"></div>
-      </section>
+    <!-- STEP 3: PRIORITIZE -->
+    <section class="card panel" data-panel="3">
+      <h2>3) Prioritize (RICE)</h2>
+      <p class="muted tiny">We auto‑suggest RICE based on severity & Jira. Edit any value; table reorders instantly.</p>
+      <div id="prioritization"></div>
+      <canvas id="chart" height="120"></canvas>
+      <div id="riceNote" class="muted tiny"></div>
+      <div class="row end">
+        <button class="btn next hover-pop" data-next="4">Next → Generate PRD</button>
+      </div>
+    </section>
 
-      <!-- PRD -->
-      <section class="card">
-        <h2>4) Draft PRD</h2>
-        <p class="muted tiny">Generated from themes + RICE (grounded by quotes). Copy or download Markdown.</p>
-        <div class="row">
-          <button id="draftPrdBtn" class="btn">📄 Draft</button>
-          <button id="copyPrdBtn" class="btn">📋 Copy</button>
-          <button id="downloadPrdBtn" class="btn">⬇ Download</button>
-        </div>
-        <textarea id="prd" class="prd"></textarea>
+    <!-- STEP 4: PRD -->
+    <section class="card panel" data-panel="4">
+      <h2>4) Product Requirements Doc (PRD)</h2>
+      <p class="muted tiny">Draft generated automatically and refined by AI. Copy or download.</p>
+      <div class="row wrap" style="gap:8px">
+        <button id="copyPrdBtn" class="btn hover-pop">📋 Copy PRD</button>
+        <button id="downloadPrdBtn" class="btn hover-pop">⬇ Download PRD</button>
+      </div>
+      <textarea id="prd" class="prd"></textarea>
+      <div id="llmStatus" class="muted tiny"></div>
+      <div class="row end">
+        <button class="btn next hover-pop" data-next="5">Next → Insights</button>
+      </div>
+    </section>
 
-        <div class="row" style="margin-top:10px">
-          <div class="col">
-            <h3 class="h3">Optional LLM ✨</h3>
-            <p class="muted tiny">Runs in-browser (WebGPU) to rephrase PRD and generate smarter labels/roadmap/personas.</p>
-            <div class="row" style="gap:8px; flex-wrap:wrap">
-              <button id="initLlmBtn" class="btn">⚡ Warm Up LLM</button>
-              <button id="rewritePrdBtn" class="btn">✨ Rewrite PRD (LLM)</button>
-              <button id="roadmapBtn" class="btn">📆 Generate Roadmap (LLM)</button>
-              <button id="personasBtn" class="btn">🧑 Personas & JTBD (LLM)</button>
-              <button id="pitchBtn" class="btn">🎤 Pitch Deck Bullets (LLM)</button>
-            </div>
-            <div id="llmStatus" class="muted tiny"></div>
-          </div>
-        </div>
-      </section>
+    <!-- STEP 5: INSIGHTS -->
+    <section class="card panel" data-panel="5">
+      <h2>5) Insights</h2>
+      <div class="tabs">
+        <button class="tab active" data-tab="roadmap">Roadmap</button>
+        <button class="tab" data-tab="personas">Personas/JTBD</button>
+        <button class="tab" data-tab="pitch">Pitch Deck Bullets</button>
+      </div>
+      <div class="tabpanes">
+        <pre id="roadmapOut" class="pre show"></pre>
+        <pre id="personasOut" class="pre"></pre>
+        <pre id="pitchOut" class="pre"></pre>
+      </div>
+      <div class="row end" style="gap:8px">
+        <button id="copyAllBtn" class="btn hover-pop">📋 Copy All</button>
+        <button id="downloadAllBtn" class="btn hover-pop">⬇ Download All (.zip)</button>
+      </div>
+    </section>
 
-      <!-- AI Outputs -->
-      <section class="card">
-        <h2>5) AI Outputs</h2>
-        <div class="stack">
-          <div>
-            <h3 class="h3">Roadmap</h3>
-            <pre id="roadmapOut" class="pre"></pre>
-          </div>
-          <div>
-            <h3 class="h3">Personas / JTBD</h3>
-            <pre id="personasOut" class="pre"></pre>
-          </div>
-          <div>
-            <h3 class="h3">Pitch Deck Bullets</h3>
-            <div class="row" style="gap:8px">
-              <button id="downloadPitchBtn" class="btn">⬇ Download bullets (.md)</button>
-              <button id="copyPitchBtn" class="btn">📋 Copy bullets</button>
-            </div>
-            <pre id="pitchOut" class="pre"></pre>
-          </div>
-        </div>
-      </section>
-    </main>
+    <!-- Hidden control hooks (for app.js & webllm-advanced.js) -->
+    <div style="display:none">
+      <button id="synthesizeBtn"></button>
+      <button id="aiLabelBtn"></button>
+      <button id="suggestRiceBtn"></button>
+      <button id="downloadCsv"></button>
+      <button id="draftPrdBtn"></button>
+      <button id="rewritePrdBtn"></button>
+      <button id="roadmapBtn"></button>
+      <button id="personasBtn"></button>
+      <button id="pitchBtn"></button>
+    </div>
 
-    <footer class="container foot muted tiny">
-      <p>Quinoa uses Transformers.js for embeddings + clustering, and optional WebLLM for on-device text. No backend, no keys.</p>
-    </footer>
+  </main>
 
-    <script type="module" src="app.js"></script>
-    <script type="module" src="webllm-advanced.js"></script>
-  </body>
+  <div id="toast" class="toast"></div>
+
+  <footer class="container foot muted tiny">
+    <p>Runs 100% client-side with Transformers.js + optional WebLLM. No backend, no keys.</p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+  <script type="module" src="webllm-advanced.js"></script>
+  <script type="module" src="wizard.js"></script>
+</body>
 </html>

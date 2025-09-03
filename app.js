@@ -88,7 +88,7 @@ function renderThemes(themes){
     const div=document.createElement('div');
     div.className='theme';
     div.setAttribute('data-theme-id', t.id);
-    const quotes = t.items.slice(0,5).map(it=>`<div class="quote">“${it.text}” <span class="muted tiny">— ${it.source}</span></div>`).join('');
+    const quotes = t.items.slice(0,5).map(it=>`<div class="quote">“${it.text}” <span class="muted tiny">— ${it.source||''}</span></div>`).join('');
     div.innerHTML=`<h4><span class="theme-title">${t.label}</span> <span class="muted tiny">(${t.items.length})</span></h4>${quotes}${t.items.length>5?`<div class="muted tiny">+${t.items.length-5} more…</div>`:''}`;
     themesEl.appendChild(div);
   });
@@ -140,7 +140,7 @@ function prdFromState(){
   const today=new Date().toISOString().slice(0,10);
   const top=window.current.rice.slice(0,5);
   const evidence=window.current.themes.slice(0,4).map(t=>{
-    const sample=t.items.slice(0,2).map(i=>`- "${i.text}" — ${i.source}`).join('\\n');
+    const sample=t.items.slice(0,2).map(i=>`- "${i.text}" — ${i.source||''}`).join('\\n');
     return `### ${t.label}\\nMentions: ${t.items.length}\\n${sample}`;
   }).join('\\n\\n');
   return `# PRD — Quinoa (Tiny grains, big insights)
@@ -194,7 +194,7 @@ function npsSeverity(score){
   return 'Promoter';
 }
 
-// Main
+// Main synthesis
 synthBtn.addEventListener('click', async ()=>{
   await ensureEmbedder();
   const rawItems=[];
@@ -246,7 +246,7 @@ synthBtn.addEventListener('click', async ()=>{
   embedStatus.textContent=`Done.`;
 });
 
-downloadCsvBtn.addEventListener('click', ()=>{
+downloadCsvBtn?.addEventListener('click', ()=>{
   if(!window.current.rice.length) return;
   const headers=['Rank','Theme','Reach','Impact','Confidence','Effort','RICE'];
   const sorted=structuredClone(window.current.rice).sort((a,b)=>b.rice-a.rice);
@@ -255,25 +255,19 @@ downloadCsvBtn.addEventListener('click', ()=>{
   download('prioritization.csv', csv);
 });
 
-draftPrdBtn.addEventListener('click', ()=>{
-  if(!window.current.rice.length){ alert('Run synthesis first.'); return; }
+draftPrdBtn?.addEventListener('click', ()=>{
+  if(!window.current.rice.length){ alert('Run analysis first.'); return; }
   prdEl.value = prdFromState();
 });
-copyPrdBtn.addEventListener('click', async ()=>{
-  if(!prdEl.value) draftPrdBtn.click();
-  await navigator.clipboard.writeText(prdEl.value);
+copyPrdBtn?.addEventListener('click', async ()=>{
+  if(!prdEl.value) draftPrdBtn?.click();
+  await navigator.clipboard.writeText(prdEl.value||'');
   copyPrdBtn.textContent='Copied!';
-  setTimeout(()=> copyPrdBtn.textContent='📋 Copy', 1200);
+  setTimeout(()=> copyPrdBtn.textContent='📋 Copy PRD', 1200);
 });
-downloadPrdBtn.addEventListener('click', ()=>{
-  if(!prdEl.value) draftPrdBtn.click();
-  download('PRD.md', prdEl.value);
-});
-
-// ---- AI Suggest RICE (handled in webllm-advanced.js) ----
-suggestRiceBtn?.addEventListener('click', () => {
-  const ev = new Event('quinoa:assist-rice');
-  window.dispatchEvent(ev);
+downloadPrdBtn?.addEventListener('click', ()=>{
+  if(!prdEl.value) draftPrdBtn?.click();
+  download('PRD.md', prdEl.value||'');
 });
 
 // demo sample
@@ -290,5 +284,5 @@ window.addEventListener('DOMContentLoaded',()=>{
     "Public roadmap page should support voting",
     "On the pricing page, enterprise contact form is confusing"
   ];
-  notesEl.value=sample.join('\\n');
+  if(!notesEl.value.trim()) notesEl.value=sample.join('\\n');
 });
