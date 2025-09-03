@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Quinoa — Tiny grains, big insights</title>
-  <meta name="description" content="Quinoa: AI PM copilot with a simple wizard UX.">
+  <meta name="description" content="Quinoa: AI PM copilot with presentation-style flow.">
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -18,27 +18,20 @@
   </script>
 </head>
 <body>
-  <header class="hero container fade-in">
-    <div class="badge">FREE • CLIENT‑SIDE AI</div>
-    <h1 class="title">Quinoa <span class="dot">●</span> PM Copilot</h1>
-    <p class="sub">Tiny grains, big insights — turn feedback into themes, priorities, and a PRD.</p>
-    <button id="startBtn" class="btn cta pulse">Start</button>
-  </header>
+  <!-- Slide 0: Hero -->
+  <section class="slide active" data-slide="0">
+    <div class="hero">
+      <div class="badge">FREE • CLIENT‑SIDE AI</div>
+      <h1 class="title">Quinoa <span class="dot">●</span> PM Copilot</h1>
+      <p class="sub">Tiny grains, big insights — turn feedback into themes, priorities, and a PRD.</p>
+      <button id="startBtn" class="btn cta pulse">Start</button>
+    </div>
+    <div class="progress"><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+  </section>
 
-  <!-- Stepper -->
-  <nav class="stepper container">
-    <div class="step active" data-step="1"><span>1</span><label>Input</label></div>
-    <div class="step" data-step="2"><span>2</span><label>Themes</label></div>
-    <div class="step" data-step="3"><span>3</span><label>Prioritize</label></div>
-    <div class="step" data-step="4"><span>4</span><label>PRD</label></div>
-    <div class="step" data-step="5"><span>5</span><label>Insights</label></div>
-    <div class="bar"></div>
-  </nav>
-
-  <main class="container">
-
-    <!-- STEP 1: INPUT -->
-    <section class="card panel active slide-in-up" data-panel="1">
+  <!-- Slide 1: Inputs -->
+  <section class="slide" data-slide="1">
+    <div class="wrap">
       <h2>1) Paste your feedback</h2>
       <p class="muted tiny">No strict format. <b>One thought per line</b> works best. You can also add CSVs.</p>
       <textarea id="notes" placeholder="Examples:
@@ -64,20 +57,26 @@ Onboarding could be more guided.
         <div id="embedStatus" class="muted tiny"></div>
         <button id="analyzeBtn" class="btn primary hover-pop">Analyze feedback →</button>
       </div>
-    </section>
+    </div>
+    <div class="progress"><span class="dot"></span><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+  </section>
 
-    <!-- STEP 2: THEMES -->
-    <section class="card panel" data-panel="2">
+  <!-- Slide 2: Themes -->
+  <section class="slide" data-slide="2">
+    <div class="wrap">
       <h2>2) Themes & evidence</h2>
       <p class="muted tiny">AI clusters similar feedback. Titles auto‑labeled with LLM.</p>
       <div id="themes" class="stagger"></div>
       <div class="row end">
         <button class="btn next hover-pop" data-next="3">Next → Prioritize</button>
       </div>
-    </section>
+    </div>
+    <div class="progress"><span class="dot"></span><span class="dot"></span><span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+  </section>
 
-    <!-- STEP 3: PRIORITIZE -->
-    <section class="card panel" data-panel="3">
+  <!-- Slide 3: Prioritize -->
+  <section class="slide" data-slide="3">
+    <div class="wrap">
       <h2>3) Prioritize (RICE)</h2>
       <p class="muted tiny">We auto‑suggest RICE based on severity & Jira. Edit any value; table reorders instantly.</p>
       <div id="prioritization"></div>
@@ -86,10 +85,13 @@ Onboarding could be more guided.
       <div class="row end">
         <button class="btn next hover-pop" data-next="4">Next → Generate PRD</button>
       </div>
-    </section>
+    </div>
+    <div class="progress"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot active"></span><span class="dot"></span><span class="dot"></span></div>
+  </section>
 
-    <!-- STEP 4: PRD -->
-    <section class="card panel" data-panel="4">
+  <!-- Slide 4: PRD -->
+  <section class="slide" data-slide="4">
+    <div class="wrap">
       <h2>4) Product Requirements Doc (PRD)</h2>
       <p class="muted tiny">Draft generated automatically and refined by AI. Copy or download.</p>
       <div class="row wrap" style="gap:8px">
@@ -101,10 +103,13 @@ Onboarding could be more guided.
       <div class="row end">
         <button class="btn next hover-pop" data-next="5">Next → Insights</button>
       </div>
-    </section>
+    </div>
+    <div class="progress"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot active"></span><span class="dot"></span></div>
+  </section>
 
-    <!-- STEP 5: INSIGHTS -->
-    <section class="card panel" data-panel="5">
+  <!-- Slide 5: Insights -->
+  <section class="slide" data-slide="5">
+    <div class="wrap">
       <h2>5) Insights</h2>
       <div class="tabs">
         <button class="tab active" data-tab="roadmap">Roadmap</button>
@@ -120,31 +125,27 @@ Onboarding could be more guided.
         <button id="copyAllBtn" class="btn hover-pop">📋 Copy All</button>
         <button id="downloadAllBtn" class="btn hover-pop">⬇ Download All (.zip)</button>
       </div>
-    </section>
-
-    <!-- Hidden control hooks (for app.js & webllm-advanced.js) -->
-    <div style="display:none">
-      <button id="synthesizeBtn"></button>
-      <button id="aiLabelBtn"></button>
-      <button id="suggestRiceBtn"></button>
-      <button id="downloadCsv"></button>
-      <button id="draftPrdBtn"></button>
-      <button id="rewritePrdBtn"></button>
-      <button id="roadmapBtn"></button>
-      <button id="personasBtn"></button>
-      <button id="pitchBtn"></button>
     </div>
+    <div class="progress"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot active"></span></div>
+  </section>
 
-  </main>
+  <!-- Hidden hooks for the core/LLM modules -->
+  <div style="display:none">
+    <button id="synthesizeBtn"></button>
+    <button id="aiLabelBtn"></button>
+    <button id="suggestRiceBtn"></button>
+    <button id="downloadCsv"></button>
+    <button id="draftPrdBtn"></button>
+    <button id="rewritePrdBtn"></button>
+    <button id="roadmapBtn"></button>
+    <button id="personasBtn"></button>
+    <button id="pitchBtn"></button>
+  </div>
 
   <div id="toast" class="toast"></div>
 
-  <footer class="container foot muted tiny">
-    <p>Runs 100% client-side with Transformers.js + optional WebLLM. No backend, no keys.</p>
-  </footer>
-
   <script type="module" src="app.js"></script>
   <script type="module" src="webllm-advanced.js"></script>
-  <script type="module" src="wizard.js"></script>
+  <script type="module" src="presentation.js"></script>
 </body>
 </html>
