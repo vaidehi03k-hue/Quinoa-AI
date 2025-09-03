@@ -77,11 +77,15 @@ Onboarding could be more guided.
   <!-- Slide 3: Prioritize -->
   <section class="slide" data-slide="3">
     <div class="wrap">
-      <h2>3) Prioritize (RICE)</h2>
-      <p class="muted tiny">We auto‑suggest RICE based on severity & Jira. Edit any value; table reorders instantly.</p>
+      <h2>3) Prioritize</h2>
+      <p class="muted tiny">
+        Quinoa picks a prioritization framework based on your data (RICE, ICE, WSJF, MoSCoW, Value/Effort, or Kano) and applies it automatically.
+      </p>
+      <div id="frameworkBadge" class="muted tiny" style="margin:6px 0 4px 0;"></div>
       <div id="prioritization"></div>
       <canvas id="chart" height="120"></canvas>
       <div id="riceNote" class="muted tiny"></div>
+      <div id="riceSuggestStatus" class="muted tiny"></div>
       <div class="row end">
         <button class="btn next hover-pop" data-next="4">Next → Generate PRD</button>
       </div>

@@ -12,9 +12,7 @@ const copyPrdBtn = document.getElementById('copyPrdBtn');
 const downloadPrdBtn = document.getElementById('downloadPrdBtn');
 const prdEl = document.getElementById('prd');
 const downloadCsvBtn = document.getElementById('downloadCsv');
-const suggestRiceBtn = document.getElementById('suggestRiceBtn');
 
-// expose global state
 window.transformers?.env?.allowLocalModels = false;
 let embedder;
 window.current = { rawItems: [], themes: [], rice: [], jira: [], nps: [] };
@@ -36,13 +34,11 @@ async function embed(texts) {
 }
 function cosine(a,b){ let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; return s; }
 
-// text utils
 const STOP = new Set(('a,an,the,of,in,for,to,from,with,and,or,but,if,on,at,by,as,be,is,are,was,were,that,this,these,those,it,its,into,not,no,yes,can,cannot,will,should,must,we,our,you,your,they,them,he,she,his,her,have,has,had,do,does,did,done,over,per,via,more,less,very,so,just,than,then,when,what,which,who,whom,why,how,about,across,within,without').split(','));
 function tokenize(str){ return (str.toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w && !STOP.has(w))); }
 function topKeywords(texts,k=4){ const freq=new Map(); for(const t of texts){ const seen=new Set(); for(const w of tokenize(t)){ if(seen.has(w)) continue; seen.add(w); freq.set(w,(freq.get(w)||0)+1); } } return [...freq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,k).map(x=>x[0]); }
 function download(filename,text){ const blob=new Blob([text],{type:'text/plain'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url); }
 
-// clustering
 function greedyCluster(vectors, items, threshold=0.72){
   const clusters=[];
   for (let i=0;i<vectors.length;i++){
@@ -59,7 +55,6 @@ function greedyCluster(vectors, items, threshold=0.72){
   return themes.sort((a,b)=>b.items.length-a.items.length);
 }
 
-// RICE
 function buildRiceRows(themes, jiraIssues){
   const rows=[];
   for(const t of themes){
@@ -96,12 +91,23 @@ function renderThemes(themes){
 
 function renderRiceTable(rows){
   prioEl.innerHTML='';
+  const hasAlt = rows.some(r => typeof r.alt_score === 'number');
+  const hasMoscow = rows.some(r => r.moscow);
+
   const table=document.createElement('table'); table.className='table';
   table.innerHTML=`
-    <thead><tr><th>Rank</th><th>Theme</th><th>Reach</th><th>Impact</th><th>Confidence</th><th>Effort</th><th>RICE</th></tr></thead>
+    <thead>
+      <tr>
+        <th>Rank</th><th>Theme</th><th>Reach</th><th>Impact</th><th>Confidence</th><th>Effort</th><th>RICE</th>
+        ${hasAlt || hasMoscow ? '<th>AI Score / Category</th>' : ''}
+      </tr>
+    </thead>
     <tbody></tbody>`;
   const tb=table.querySelector('tbody');
   rows.forEach((r,idx)=>{
+    const extra = hasAlt ? (typeof r.alt_score === 'number' ? r.alt_score.toFixed(2) : '—')
+               : hasMoscow ? (r.moscow || '—')
+               : '';
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${idx+1}</td>
       <td>${r.theme}</td>
@@ -109,17 +115,29 @@ function renderRiceTable(rows){
       <td><input type="number" step="0.1" value="${r.impact}" data-id="${r.id}" data-field="impact"></td>
       <td><input type="number" step="0.05" value="${r.confidence}" data-id="${r.id}" data-field="confidence"></td>
       <td><input type="number" step="1" value="${r.effort}" data-id="${r.id}" data-field="effort"></td>
-      <td><b>${r.rice}</b></td>`;
+      <td><b>${r.rice}</b></td>
+      ${hasAlt || hasMoscow ? `<td>${extra}</td>` : ''}`;
     tb.appendChild(tr);
   });
   prioEl.appendChild(table);
+
   table.querySelectorAll('input').forEach(inp=>{
     inp.addEventListener('change', e=>{
       const id=e.target.dataset.id, field=e.target.dataset.field;
       const row=window.current.rice.find(x=>x.id===id);
       row[field]=Number(e.target.value);
       row.rice=Math.round((row.reach*row.impact*row.confidence)/Math.max(1,row.effort)*100)/100;
-      window.current.rice.sort((a,b)=>b.rice-a.rice);
+
+      const useAlt = window.current.rice.some(x => typeof x.alt_score === 'number');
+      if (useAlt){
+        window.current.rice.sort((a,b)=>{
+          const sa = (b.alt_score ?? -Infinity) - (a.alt_score ?? -Infinity);
+          if (sa !== 0) return sa;
+          return b.rice - a.rice;
+        });
+      } else {
+        window.current.rice.sort((a,b)=>b.rice-a.rice);
+      }
       renderRiceTable(window.current.rice);
       drawChart(window.current.rice);
     });
@@ -135,14 +153,13 @@ function drawChart(rows){
   chart=new Chart(ctx,{type:'bar', data:{labels, datasets:[{label:'RICE score', data}]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
 }
 
-// PRD
 function prdFromState(){
   const today=new Date().toISOString().slice(0,10);
   const top=window.current.rice.slice(0,5);
   const evidence=window.current.themes.slice(0,4).map(t=>{
-    const sample=t.items.slice(0,2).map(i=>`- "${i.text}" — ${i.source||''}`).join('\\n');
-    return `### ${t.label}\\nMentions: ${t.items.length}\\n${sample}`;
-  }).join('\\n\\n');
+    const sample=t.items.slice(0,2).map(i=>`- "${i.text}" — ${i.source||''}`).join('\n');
+    return `### ${t.label}\nMentions: ${t.items.length}\n${sample}`;
+  }).join('\n\n');
   return `# PRD — Quinoa (Tiny grains, big insights)
 Date: ${today}
 
@@ -155,15 +172,15 @@ PMs spend significant time synthesizing inputs (calls, NPS, tickets) into priori
 
 ## Goals (MVP)
 - Cut research→priorities→PRD cycle by ~60%.
-- First‑pass stakeholder sign‑off ≥ 80%.
+- First-pass stakeholder sign-off ≥ 80%.
 - PRD sections grounded with evidence.
 
 ## Top Opportunities (by RICE)
-${top.map((r,i)=>`${i+1}. **${r.theme}** — RICE ${r.rice} (R ${r.reach}, I ${r.impact}, C ${r.confidence}, E ${r.effort})`).join('\\n')}
+${top.map((r,i)=>`${i+1}. **${r.theme}** — RICE ${r.rice} (R ${r.reach}, I ${r.impact}, C ${r.confidence}, E ${r.effort})`).join('\n')}
 
 ## Scope (v1)
 - Local embeddings + clustering to extract themes with citations.
-- RICE table with editable values and auto-ranking.
+- Prioritization with editable values and auto-ranking.
 - PRD exporter (Markdown).
 
 ## Risks & Mitigations
@@ -178,14 +195,12 @@ ${evidence}
 Generated locally via embeddings + clustering. Edit freely.`;
 }
 
-// CSV
 function parseCsvFile(file){
   return new Promise((resolve, reject)=>{
     Papa.parse(file, {header:true, skipEmptyLines:true, complete:r=>resolve(r.data), error:reject});
   });
 }
 
-// Severity mapping for NPS if score present
 function npsSeverity(score){
   const s = Number(score);
   if (isNaN(s)) return null;
@@ -194,11 +209,10 @@ function npsSeverity(score){
   return 'Promoter';
 }
 
-// Main synthesis
 synthBtn.addEventListener('click', async ()=>{
   await ensureEmbedder();
   const rawItems=[];
-  const lines=notesEl.value.split('\\n').map(x=>x.trim()).filter(Boolean);
+  const lines=notesEl.value.split('\n').map(x=>x.trim()).filter(Boolean);
   lines.forEach((t,i)=> rawItems.push({id:`N${i+1}`, text:t, source:'Notes'}));
 
   window.current.nps = [];
@@ -251,7 +265,7 @@ downloadCsvBtn?.addEventListener('click', ()=>{
   const headers=['Rank','Theme','Reach','Impact','Confidence','Effort','RICE'];
   const sorted=structuredClone(window.current.rice).sort((a,b)=>b.rice-a.rice);
   const rows=sorted.map((r,i)=>[i+1,r.theme,r.reach,r.impact,r.confidence,r.effort,r.rice]);
-  const csv=[headers.join(','), ...rows.map(r=>r.join(','))].join('\\n');
+  const csv=[headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
   download('prioritization.csv', csv);
 });
 
@@ -270,7 +284,33 @@ downloadPrdBtn?.addEventListener('click', ()=>{
   download('PRD.md', prdEl.value||'');
 });
 
-// demo sample
+// Insights: Copy/Download all
+const copyAllBtn = document.getElementById('copyAllBtn');
+const downloadAllBtn = document.getElementById('downloadAllBtn');
+copyAllBtn?.addEventListener('click', async ()=>{
+  const out = [
+    document.getElementById('roadmapOut')?.textContent || '',
+    document.getElementById('personasOut')?.textContent || '',
+    document.getElementById('pitchOut')?.textContent || ''
+  ].join('\n\n---\n\n');
+  await navigator.clipboard.writeText(out);
+  alert('Insights copied to clipboard.');
+});
+downloadAllBtn?.addEventListener('click', ()=>{
+  const out = [
+    '# Quinoa — Insights Bundle',
+    '## Roadmap','',
+    document.getElementById('roadmapOut')?.textContent || '',
+    '',
+    '## Personas / JTBD','',
+    document.getElementById('personasOut')?.textContent || '',
+    '',
+    '## Pitch Bullets','',
+    document.getElementById('pitchOut')?.textContent || ''
+  ].join('\n');
+  download('quinoa-insights.md', out);
+});
+
 window.addEventListener('DOMContentLoaded',()=>{
   const sample=[
     "Customers can’t find the bulk edit action for tasks",
@@ -284,5 +324,5 @@ window.addEventListener('DOMContentLoaded',()=>{
     "Public roadmap page should support voting",
     "On the pricing page, enterprise contact form is confusing"
   ];
-  if(!notesEl.value.trim()) notesEl.value=sample.join('\\n');
+  if(!notesEl.value.trim()) notesEl.value=sample.join('\n');
 });

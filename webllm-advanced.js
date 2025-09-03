@@ -1,9 +1,8 @@
-// WebLLM advanced: AI labels, PRD rewrite, RICE assistant, Roadmap, Personas, Pitch Deck
+// WebLLM advanced: AI labels, PRD rewrite, RICE assistant, Roadmap, Personas, Pitch Deck, Framework chooser
 let engine = null;
 const llmStatus = document.getElementById('llmStatus');
 const aiLabelBtn = document.getElementById('aiLabelBtn');
 const rewritePrdBtn = document.getElementById('rewritePrdBtn');
-const initLlmBtn = document.getElementById('initLlmBtn');
 
 const roadmapBtn = document.getElementById('roadmapBtn');
 const personasBtn = document.getElementById('personasBtn');
@@ -11,23 +10,21 @@ const pitchBtn = document.getElementById('pitchBtn');
 const roadmapOut = document.getElementById('roadmapOut');
 const personasOut = document.getElementById('personasOut');
 const pitchOut = document.getElementById('pitchOut');
-const copyPitchBtn = document.getElementById('copyPitchBtn');
-const downloadPitchBtn = document.getElementById('downloadPitchBtn');
 const riceSuggestStatus = document.getElementById('riceSuggestStatus');
 
 async function ensureEngine() {
   if (engine) return engine;
-  llmStatus.textContent = 'Loading WebLLM model… (first time can take a bit)';
+  if (llmStatus) llmStatus.textContent = 'Loading WebLLM model… (first time can take a bit)';
   try {
     const mod = await import('https://esm.run/@mlc-ai/web-llm');
-    const model = 'Llama-3.2-1B-Instruct-q4f16_1-MLC'; // small, portable
+    const model = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
     engine = await mod.CreateMLCEngine(model, {
-      initProgressCallback: (p) => { llmStatus.textContent = `Loading LLM: ${Math.round(p.progress*100)}%`; }
+      initProgressCallback: (p) => { if (llmStatus) llmStatus.textContent = `Loading LLM: ${Math.round(p.progress*100)}%`; }
     });
-    llmStatus.textContent = 'LLM ready.';
+    if (llmStatus) llmStatus.textContent = 'LLM ready.';
   } catch (e) {
     console.error(e);
-    llmStatus.textContent = 'WebLLM not supported / failed to load (needs WebGPU).';
+    if (llmStatus) llmStatus.textContent = 'WebLLM not supported / failed to load (needs WebGPU).';
     throw e;
   }
   return engine;
@@ -80,15 +77,14 @@ aiLabelBtn?.addEventListener('click', async () => {
       const titleEl = themeDivs[idx]?.querySelector('.theme-title');
       if (titleEl) titleEl.textContent = title;
     });
-    // Sync RICE labels
     window.current.rice.forEach(r => {
       const match = window.current.themes.find(t => t.id === r.id);
       if (match) r.theme = match.label;
     });
     window.dispatchEvent(new Event('renderRice'));
-    llmStatus.textContent = 'Theme labels updated via LLM.';
+    if (llmStatus) llmStatus.textContent = 'Theme labels updated via LLM.';
   } catch (e) {
-    llmStatus.textContent = 'Failed to label themes (LLM not available).';
+    if (llmStatus) llmStatus.textContent = 'Failed to label themes (LLM not available).';
   }
 });
 
@@ -96,35 +92,34 @@ aiLabelBtn?.addEventListener('click', async () => {
 rewritePrdBtn?.addEventListener('click', async () => {
   const prdEl = document.getElementById('prd');
   if (!prdEl.value) return;
-  llmStatus.textContent = 'Rewriting PRD with LLM…';
+  if (llmStatus) llmStatus.textContent = 'Rewriting PRD with LLM…';
   try {
     const prompt = `Rewrite the following PRD into a concise executive brief. Keep headings, strengthen clarity, remove fluff, and ensure it stays grounded in the listed evidence. Do not invent facts.\n\n${prdEl.value}`;
     const resp = await llmText(prompt);
     prdEl.value = resp || prdEl.value;
-    llmStatus.textContent = 'PRD rewritten.';
+    if (llmStatus) llmStatus.textContent = 'PRD rewritten.';
   } catch (e) {
-    llmStatus.textContent = 'LLM rewrite failed or unsupported.';
+    if (llmStatus) llmStatus.textContent = 'LLM rewrite failed or unsupported.';
   }
 });
 
-// ---------- Prioritization Assistant (AI Suggest RICE) ----------
+// ---------- Prioritization Assistant (classic RICE fallback) ----------
 window.addEventListener('quinoa:assist-rice', async () => {
   if (!window.current?.themes?.length) return;
   try {
-    const riceSuggestStatus = document.getElementById('riceSuggestStatus') || {textContent:''};
-    riceSuggestStatus.textContent = 'LLM analyzing severity & suggesting RICE…';
+    const status = document.getElementById('riceSuggestStatus') || {textContent:''};
+    status.textContent = 'LLM analyzing severity & suggesting RICE…';
     const themes = window.current.themes.map(t => {
       const ex = t.items.slice(0, 3).map(i => `- ${i.text}${i.severity ? ' (sev:' + i.severity + ')' : ''}`).join('\n');
       const sevCounts = { Detractor:0, Passive:0, Promoter:0 };
       t.items.forEach(i => { if (i.severity && sevCounts[i.severity] !== undefined) sevCounts[i.severity]++; });
       return { id: t.id, label: t.label, reach: t.items.length, examples: ex, severity: sevCounts };
     });
-    const jira = window.current.jira;
+    const jira = window.current.jira || [];
     const schema = `[{"id":"T1","impact":2.4,"confidence":0.7,"effort":5,"rationale":"why impact/confidence/effort"}]`;
-    const prompt = `Suggest RICE fields for each theme using the patterns in severity (Detractor/Passive/Promoter counts), reach, examples, and any Jira story points hints in this list: ${JSON.stringify(jira).slice(0,1800)}.\n\nThemes:\n${JSON.stringify(themes).slice(0,5000)}\n\nReturn JSON array with objects: ${schema}`;
+    const prompt = `Suggest RICE fields for each theme using severity counts and any Jira points: ${JSON.stringify(jira).slice(0,1800)}\nThemes:\n${JSON.stringify(themes).slice(0,5000)}\nReturn JSON array as ${schema}`;
     const json = await llmJSON(prompt, schema);
     const byId = Object.fromEntries(json.map(x => [x.id, x]));
-    // Apply suggestions
     window.current.rice.forEach(r => {
       const s = byId[r.id]; if (!s) return;
       r.impact = typeof s.impact === 'number' ? s.impact : r.impact;
@@ -132,38 +127,83 @@ window.addEventListener('quinoa:assist-rice', async () => {
       r.effort = typeof s.effort === 'number' ? s.effort : r.effort;
       r.rice = Math.round((r.reach*r.impact*r.confidence)/Math.max(1,r.effort)*100)/100;
     });
-    // Render + rationale note
-    const notes = json.map(j => `• ${j.id}: ${j.rationale || '—'}`).join('\n');
-    riceSuggestStatus.textContent = 'Applied LLM RICE suggestions:\n' + notes;
-    // Re-render: trigger a change on first input to refresh table/chart
+    status.textContent = 'Applied LLM RICE suggestions.';
     const firstInput = document.querySelector('#prioritization input');
     if (firstInput) firstInput.dispatchEvent(new Event('change'));
   } catch (e) {
-    const riceSuggestStatus = document.getElementById('riceSuggestStatus') || {textContent:''};
-    riceSuggestStatus.textContent = 'LLM RICE suggestion failed: ' + e.message;
+    const status = document.getElementById('riceSuggestStatus') || {textContent:''};
+    status.textContent = 'LLM RICE suggestion failed: ' + e.message;
   }
 });
 
-// ---------- Roadmap Generator ----------
+// ---------- Auto-select Best Prioritization Framework ----------
+window.addEventListener('quinoa:assist-prioritization', async () => {
+  if (!window.current?.themes?.length) return;
+  const frameworkBadge = document.getElementById('frameworkBadge');
+  const say = (t)=>{ if(frameworkBadge) frameworkBadge.textContent = t; };
+  try {
+    say('Analyzing data to choose the best framework…');
+
+    const themes = window.current.themes.map(t => {
+      const sev = { Detractor:0, Passive:0, Promoter:0 };
+      t.items.forEach(i => { if (i.severity && sev[i.severity] !== undefined) sev[i.severity]++; });
+      return { id:t.id, title:t.label, reach:t.items.length, severity:sev, hasJira:!!(window.current.jira?.length), keywords:t.keywords?.slice(0,6) || [] };
+    });
+
+    const schema = `{
+      "framework":"RICE|ICE|WSJF|MoSCoW|ValueEffort|Kano",
+      "rationale":"short why this fits the data",
+      "per_theme":[{"id":"T1","score":7.2,"category":"Must|Should|Could|Won't"}]
+    }`;
+
+    const prompt = `Choose the best prioritization framework for the data (RICE, ICE, WSJF, MoSCoW, ValueEffort, Kano). Justify briefly and return JSON as ${schema}. Data: ${JSON.stringify(themes).slice(0,7000)}`;
+    const decision = await llmJSON(prompt, schema);
+
+    window.current.framework = {
+      name: decision.framework || 'RICE',
+      rationale: decision.rationale || '',
+      perTheme: Array.isArray(decision.per_theme) ? decision.per_theme : []
+    };
+
+    const scoreById = {};
+    window.current.framework.perTheme.forEach(x => { if (typeof x.score === 'number') scoreById[x.id] = x.score; });
+    if (Object.keys(scoreById).length && window.current.rice?.length) {
+      window.current.rice.forEach(r => { r.alt_score = scoreById[r.id] ?? null; });
+      window.current.rice.sort((a,b)=>{
+        const sa = (b.alt_score ?? -Infinity) - (a.alt_score ?? -Infinity);
+        if (sa !== 0) return sa;
+        return b.rice - a.rice;
+      });
+    } else {
+      const catById = {};
+      window.current.framework.perTheme.forEach(x => { if (x.category) catById[x.id] = x.category; });
+      window.current.rice.forEach(r => { r.moscow = catById[r.id] || null; });
+      window.current.rice.sort((a,b)=> b.rice - a.rice);
+    }
+
+    say(`Framework: ${window.current.framework.name} — ${window.current.framework.rationale}`);
+    const firstInput = document.querySelector('#prioritization input');
+    if (firstInput) firstInput.dispatchEvent(new Event('change'));
+  } catch (e) {
+    say('Framework selection failed; using RICE defaults.');
+    window.dispatchEvent(new Event('quinoa:assist-rice'));
+  }
+});
+
+// ---------- Roadmap ----------
 roadmapBtn?.addEventListener('click', async () => {
   if (!window.current?.rice?.length) return;
   try {
-    llmStatus.textContent = 'Generating roadmap with LLM…';
+    if (llmStatus) llmStatus.textContent = 'Generating roadmap with LLM…';
     const top = structuredClone(window.current.rice).sort((a,b)=>b.rice-a.rice).slice(0,5);
     const schema = `{"Q1":[{"id":"T1","title":"SSO for Enterprise","why":"reason","deps":"dependencies or null"}],"Q2":[{"id":"T5","title":"Faster Search","why":"reason","deps":null}]}`;
-    const prompt = `Group these top opportunities into Q1 and Q2 with brief justifications. Consider impact, confidence, and effort. Return JSON as ${schema}.\n\nItems:\n${JSON.stringify(top)}`;
+    const prompt = `Group these top opportunities into Q1 and Q2 with brief justifications. Consider impact, confidence, and effort. Return JSON as ${schema}. Items: ${JSON.stringify(top)}`;
     const json = await llmJSON(prompt, schema);
-    const md = [
-      '# Roadmap',
-      '## Q1',
-      ...(json.Q1||[]).map(x => `- **${x.title}** (${x.id}) — ${x.why}${x.deps?` _(deps: ${x.deps})_`:''}`),
-      '## Q2',
-      ...(json.Q2||[]).map(x => `- **${x.title}** (${x.id}) — ${x.why}${x.deps?` _(deps: ${x.deps})_`:''}`),
-    ].join('\n');
+    const md = ['# Roadmap','## Q1',...(json.Q1||[]).map(x=>`- **${x.title}** (${x.id}) — ${x.why}${x.deps?` _(deps: ${x.deps})_`:''}`),'## Q2',...(json.Q2||[]).map(x=>`- **${x.title}** (${x.id}) — ${x.why}${x.deps?` _(deps: ${x.deps})_`:''}`)].join('\n');
     roadmapOut.textContent = md;
-    llmStatus.textContent = 'Roadmap ready.';
+    if (llmStatus) llmStatus.textContent = 'Roadmap ready.';
   } catch (e) {
-    llmStatus.textContent = 'Roadmap generation failed: ' + e.message;
+    if (llmStatus) llmStatus.textContent = 'Roadmap generation failed: ' + e.message;
   }
 });
 
@@ -171,20 +211,16 @@ roadmapBtn?.addEventListener('click', async () => {
 personasBtn?.addEventListener('click', async () => {
   if (!window.current?.themes?.length) return;
   try {
-    llmStatus.textContent = 'Inferring personas & JTBD…';
-    const themes = window.current.themes.map(t => ({
-      id: t.id,
-      title: t.label,
-      examples: t.items.slice(0,3).map(i => i.text)
-    }));
+    if (llmStatus) llmStatus.textContent = 'Inferring personas & JTBD…';
+    const themes = window.current.themes.map(t => ({ id:t.id, title:t.label, examples:t.items.slice(0,3).map(i=>i.text) }));
     const schema = `[{"themeId":"T1","persona":"Enterprise Admin","jtbd":"When..., I want to..., so I can...","pain":"main pain point"}]`;
-    const prompt = `For each theme, infer likely persona and a Jobs-to-be-Done statement. Use short text. Return JSON array as ${schema}.\nThemes:\n${JSON.stringify(themes)}`;
+    const prompt = `For each theme, infer a likely persona and a Jobs-to-be-Done statement. Return JSON array as ${schema}. Themes: ${JSON.stringify(themes)}`;
     const json = await llmJSON(prompt, schema);
     const md = ['# Personas & JTBD'].concat(json.map(p => `- **${p.themeId}** — **${p.persona}**\n  - JTBD: ${p.jtbd}\n  - Pain: ${p.pain}`)).join('\n');
     personasOut.textContent = md;
-    llmStatus.textContent = 'Personas ready.';
+    if (llmStatus) llmStatus.textContent = 'Personas ready.';
   } catch (e) {
-    llmStatus.textContent = 'Persona extraction failed: ' + e.message;
+    if (llmStatus) llmStatus.textContent = 'Persona extraction failed: ' + e.message;
   }
 });
 
@@ -192,21 +228,19 @@ personasBtn?.addEventListener('click', async () => {
 pitchBtn?.addEventListener('click', async () => {
   if (!window.current?.themes?.length) return;
   try {
-    llmStatus.textContent = 'Generating deck bullets…';
-    const themes = window.current.themes.map(t => ({
-      title: t.label, count: t.items.length, quotes: t.items.slice(0,2).map(i=>i.text)
-    }));
+    if (llmStatus) llmStatus.textContent = 'Generating deck bullets…';
+    const themes = window.current.themes.map(t => ({ title:t.label, count:t.items.length, quotes:t.items.slice(0,2).map(i=>i.text) }));
     const top = structuredClone(window.current.rice).sort((a,b)=>b.rice-a.rice).slice(0,5);
-    const prompt = `Create slide-ready bullets for a 5-minute pitch deck with these sections: Problem, Insights, Solution (Quinoa), AI Approach, Demo Flow, Roadmap (based on these top items), Metrics. Use concise bullets (<=8 words each). Keep grounded in input data.\nThemes:\n${JSON.stringify(themes)}\nTop:\n${JSON.stringify(top)}`;
+    const prompt = `Create slide-ready bullets for a 5-minute pitch deck with these sections: Problem, Insights, Solution (Quinoa), AI Approach, Demo Flow, Roadmap (based on these top items), Metrics. Use concise bullets (<=8 words each). Keep grounded in input data.\nThemes:${JSON.stringify(themes)}\nTop:${JSON.stringify(top)}`;
     const resp = await llmText(prompt);
     pitchOut.textContent = resp.trim();
-    llmStatus.textContent = 'Deck bullets ready.';
+    if (llmStatus) llmStatus.textContent = 'Deck bullets ready.';
   } catch (e) {
-    llmStatus.textContent = 'Deck bullets failed: ' + e.message;
+    if (llmStatus) llmStatus.textContent = 'Deck bullets failed: ' + e.message;
   }
 });
 
-// --- small helper to refresh RICE table labels if needed ---
+// keep helper to refresh RICE table labels
 window.addEventListener('renderRice', () => {
   const prioEl = document.getElementById('prioritization');
   const rows = prioEl.querySelectorAll('tbody tr');
